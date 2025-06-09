@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="SolutionItems">
+    <File Path="LICENSE" />
+    <File Path="Readme.md" />
+  </Folder>
+  <Project Path="RxTrace.TestSource\RxTrace.TestSource.csproj" Type="Classic C#" />
+  <Project Path="RxTrace.Visualizer\RxTrace.Visualizer.csproj" Type="Classic C#" />
+  <Project Path="RxTrace\RxTrace.csproj" Type="Classic C#" />
+</Solution>

@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="MessagePipe" Version="1.8.1" />
+      <PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.3.0" />
+      <PackageReference Include="Microsoft.Extensions.Options" Version="9.0.5" />
+      <PackageReference Include="OneOf" Version="3.0.271" />
+      <PackageReference Include="Splat" Version="15.3.1" />
+      <PackageReference Include="System.Reactive" Version="6.0.1" />
+    </ItemGroup>
+
+</Project>
