@@ -4,20 +4,22 @@ using Microsoft.AspNetCore.Http;
 
 namespace RxTrace;
 
-public sealed class RxTraceMiddleware(RequestDelegate next)
+public static class RxTraceMiddleware
 {
-    public async Task InvokeAsync(HttpContext context, IAsyncSubscriber<RxEventRecord> tracer)
+    public static async Task InvokeAsync(
+        HttpContext context,
+        IAsyncSubscriber<RxEventRecord> tracer,
+        CancellationToken requestAborted)
     {
-        if (!context.Request.Path.Equals("/rxtrace", StringComparison.Ordinal))
-        {
-            await next(context);
-            return;
-        }
-
-        // SSE requires this header to be set on each response  
+        // SSE requires this header to be set on each response
         context.Response.Headers.Add("Content-Type", "text/event-stream");
+        context.Response.Headers.Append("Cache-Control", "no-cache");
+        context.Response.Headers.Append("Connection", "keep-alive");
+        context.Response.Headers.Append("X-Accel-Buffering", "no"); // nginx
+        context.Response.Headers.Append("Content-Encoding",  "identity"); // disable gzip
+        await context.Response.Body.FlushAsync(requestAborted);
 
-        // Subscribe to the tracer observable and push events as they come  
+        // Subscribe to the tracer observable and push events as they come
         using var subscription = tracer
             .Subscribe(async (RxEventRecord ev, CancellationToken ct) =>
             {
@@ -26,7 +28,7 @@ public sealed class RxTraceMiddleware(RequestDelegate next)
                 await context.Response.Body.FlushAsync(context.RequestAborted);
             });
 
-        // Keep the connection open until client disconnects  
+        // Keep the connection open until client disconnects
         var disconnectTcs = new TaskCompletionSource<object?>();
         context.RequestAborted.Register(() => disconnectTcs.TrySetResult(null));
         await disconnectTcs.Task;

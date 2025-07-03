@@ -14,6 +14,10 @@ public static class DependencyInjection
         services.AddSingleton<IBehavior<ViewModels.MainViewModel>, GraphBehavior>();
         services.AddSingleton<IBehavior<ViewModels.MainViewModel>, CommandsBehavior>();
         services.AddMessagePipe();
+        services
+            .AddHttpClient(HttpClientNames.EventStream)
+            .AddPolicyHandler(RetryPolicyFactory.CreateHttpRetryPolicy());
+
         return services;
     }
 }

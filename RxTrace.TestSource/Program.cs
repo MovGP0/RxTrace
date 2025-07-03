@@ -5,37 +5,34 @@ using Splat.Microsoft.Extensions.DependencyInjection;
 Console.WriteLine("Starting RxTrace.TestSource...");
 
 // Build the Host + DI
-var host = Host.CreateDefaultBuilder(args)
-    .ConfigureServices((ctx, services) =>
-    {
-        // MessagePipe registrations (publisher/subscriber for RxEventRecord)
-        services.AddMessagePipe();
-        services.AddSingleton(TimeProvider.System);
+var builder = WebApplication.CreateSlimBuilder(args);
 
-        // Your tracer registration and options
-        services.AddRxTrace();
-        services.Configure<RxTraceOptions>(opts =>
-            ctx.Configuration.GetSection("RxTrace").Bind(opts));
+var services = builder.Services;
 
-        // Splat: let MessagePipe & your tracer use Splat for locating services
-        services.UseMicrosoftDependencyResolver(); 
-    })
-    .ConfigureWebHostDefaults(web =>
-    {
-        web.Configure(app =>
-        {
-            // 1. Wire up your custom SSE middleware
-            app.UseRxTrace();
-        })
-        .UseUrls("http://*:5000");
-    })
-    .Build();
+// MessagePipe registrations (publisher/subscriber for RxEventRecord)
+services.AddMessagePipe();
+services.AddSingleton(TimeProvider.System);
+
+// Your tracer registration and options
+services.AddRxTrace();
+services.Configure<RxTraceOptions>(opts =>
+    builder.Configuration.GetSection("RxTrace").Bind(opts));
+
+// Splat: let MessagePipe & your tracer use Splat for locating services
+services.UseMicrosoftDependencyResolver();
+
+builder.WebHost.UseUrls("http://localhost:5000", "http://*:5000");
+
+var app = builder.Build();
+
+app.MapGet("/rxtrace", RxTraceMiddleware.InvokeAsync);
+app.UseRouting();
 
 // Start the web server in the background
-var webTask = host.RunAsync();
+var webTask = app.RunAsync();
 
 // Resolve your tracer (publisher) from the container
-var tracer = host.Services.GetRequiredService<IRxEventTracer>();
+var tracer = app.Services.GetRequiredService<IRxEventTracer>();
 
 // Create a simple IObservable sequence (one event per second)
 var sourceStream = Observable
@@ -59,5 +56,5 @@ using (var _ = sourceStream.Subscribe(ev =>
 }
 
 // shut down web server
-await host.StopAsync();
+await app.StopAsync();
 await webTask;
