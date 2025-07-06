@@ -3,6 +3,7 @@ using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using Microsoft.Msagl.Drawing;
 using ReactiveMarbles.ObservableEvents;
+using ReactiveUI;
 using RxTrace.Visualizer.ViewModels;
 
 namespace RxTrace.Visualizer.Behaviors;
@@ -13,96 +14,106 @@ public sealed class GraphBehavior(TimeProvider timeProvider) : IBehavior<MainVie
 
     public void Activate(MainViewModel vm, CompositeDisposable disposables)
     {
-        // Watch both collections
         var nodesChanged = vm.Nodes.Events().CollectionChanged;
         var edgesChanged = vm.Edges.Events().CollectionChanged;
 
-        nodesChanged.Merge(edgesChanged)
+        nodesChanged
+            .Merge(edgesChanged)
             .Select(_ => Unit.Default)
+            .Throttle(TimeSpan.FromMilliseconds(50))
             .StartWith(Unit.Default)
-            .Subscribe(_ => RebuildGraph())
+            .ObserveOn(RxApp.MainThreadScheduler)
+            .Subscribe(_ => SyncGraph(vm))
             .DisposeWith(disposables);
-        return;
-
-        void RebuildGraph()
-        {
-            var utcNow = TimeProvider.GetUtcNow();
-            var graph = CloneGraph(vm);
-
-            var existingIds = new HashSet<string>(graph.Nodes.Select(n => n.Id));
-
-            var nodesToCreate = vm.Nodes
-                .Where(n => !existingIds.Contains(n.Id));
-
-            foreach (var n in nodesToCreate)
-            {
-                var node = graph.AddNode(n.Id);
-                node.LabelText = n.Id;
-            }
-
-            // add or update edges
-            var existingKeys = graph.Edges
-                .Select(e => (e.Source, e.Target))
-                .ToHashSet();
-
-            var toAdd = vm.Edges
-                .Where(e => !existingKeys.Contains((e.SourceId, e.TargetId)));
-
-            foreach (var vmEdge in toAdd)
-            {
-                var c = ColorFromAge(utcNow, vmEdge.LastTriggered);
-                var added = graph.AddEdge(vmEdge.SourceId, vmEdge.TargetId);
-                added.Attr.Color = new(c.R, c.G, c.B);
-            }
-
-            var toUpdate = vm.Edges
-                .Where(e => existingKeys.Contains((e.SourceId, e.TargetId)));
-
-            foreach (var vmEdge in toUpdate)
-            {
-                var c = ColorFromAge(utcNow, vmEdge.LastTriggered);
-                var existing = graph.Edges
-                    .First(e => e.Source == vmEdge.SourceId && e.Target == vmEdge.TargetId);
-                existing.Attr.Color = new(c.R, c.G, c.B);
-            }
-
-            vm.Graph = graph;
-        }
-
-        System.Windows.Media.Color ColorFromAge(DateTimeOffset utcNow, DateTimeOffset timestamp)
-        {
-            var ageSec = (utcNow - timestamp).TotalSeconds;
-
-            float tau = 20.0f; // decay factor in [s]
-            byte intensity = (byte)Math.Max(0, 255 - ageSec * tau);
-
-            return System.Windows.Media.Color.FromRgb(intensity, 0, (byte)(255 - intensity));
-        }
     }
 
-    private static Graph CloneGraph(MainViewModel vm)
+    private void SyncGraph(MainViewModel vm)
     {
-        var existingGraph = vm.Graph;
-        var graph = new Graph
+        var utcNow = TimeProvider.GetUtcNow();
+        var graph = CloneGraph(vm.Graph);  // update in-place
+
+        var vmNodeIds = new HashSet<string>(vm.Nodes.Select(n => n.Id));
+        var vmEdgeKeys = vm.Edges
+            .Select(e => (e.SourceId, e.TargetId))
+            .ToHashSet();
+
+        var graphNodeIds = graph.Nodes.Select(n => n.Id).ToList();
+        foreach (var id in graphNodeIds.Except(vmNodeIds))
         {
-            Directed = existingGraph.Directed,
-            Attr = existingGraph.Attr,
-            Label = existingGraph.Label,
-            UserData = existingGraph.UserData,
-            GeometryObject = existingGraph.GeometryObject,
-            RootSubgraph = existingGraph.RootSubgraph,
+            var node = graph.Nodes.FirstOrDefault(n => n.Id == id);
+            graph.RemoveNode(node);
+        }
+
+        foreach (var n in vm.Nodes.Where(n => !graphNodeIds.Contains(n.Id)))
+        {
+            var node = graph.AddNode(n.Id);
+            node.LabelText = n.Id;
+        }
+
+        var graphEdgeKeys = graph.Edges
+            .Select(e => (e.Source, e.Target))
+            .ToList();
+
+        foreach (var (source, target) in graphEdgeKeys.Except(vmEdgeKeys))
+        {
+            var edge = graph.Edges.FirstOrDefault(e => e.Source == source && e.Target == target);
+            graph.RemoveEdge(edge);
+        }
+
+        var graphEdgeMap = graph.Edges
+            .ToDictionary(e => (e.Source, e.Target));
+
+        foreach (var vmEdge in vm.Edges)
+        {
+            var key = (vmEdge.SourceId, vmEdge.TargetId);
+            var color = ColorFromAge(utcNow, vmEdge.LastTriggered);
+
+            if (graphEdgeMap.TryGetValue(key, out var existingEdge))
+            {
+                // update
+                existingEdge.Attr.Color = new(color.R, color.G, color.B);
+            }
+            else
+            {
+                // add
+                var added = graph.AddEdge(vmEdge.SourceId, vmEdge.TargetId);
+                added.Attr.Color = new(color.R, color.G, color.B);
+            }
+        }
+
+        vm.Graph = graph;
+    }
+
+    private static System.Windows.Media.Color ColorFromAge(DateTimeOffset utcNow, DateTimeOffset timestamp)
+    {
+        var ageSec = (utcNow - timestamp).TotalSeconds;
+        float decayPerSec = 20.0f;    // intensity decay
+        byte intensity = (byte)Math.Max(0, 255 - ageSec * decayPerSec);
+        return System.Windows.Media.Color.FromRgb(intensity, 0, (byte)(255 - intensity));
+    }
+
+    private static Graph CloneGraph(Graph graph)
+    {
+        var newGraph = new Graph
+        {
+            Directed = graph.Directed,
+            Attr = graph.Attr,
+            Label = graph.Label,
+            UserData = graph.UserData,
+            GeometryObject = graph.GeometryObject,
+            RootSubgraph = graph.RootSubgraph,
         };
 
-        foreach (var node in existingGraph.Nodes)
+        foreach (var node in graph.Nodes)
         {
-            graph.AddNode(node);
+            newGraph.AddNode(node);
         }
 
-        foreach (var edge in graph.Edges)
+        foreach (var edge in newGraph.Edges)
         {
-            graph.AddPrecalculatedEdge(edge);
+            newGraph.AddPrecalculatedEdge(edge);
         }
 
-        return graph;
+        return newGraph;
     }
 }
