@@ -5,7 +5,6 @@ using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Text.Json;
-using DynamicData.Kernel;
 using ReactiveUI;
 using RxTrace.Visualizer.ViewModels;
 
@@ -30,7 +29,7 @@ public sealed class CommandsBehavior(
             .ObserveOn(RxApp.MainThreadScheduler);
 
         viewModel.Start = ReactiveCommand
-            .CreateFromTask(StartAsync, canStart, RxApp.MainThreadScheduler)
+            .CreateFromTask(StartAsync, canStart)
             .DisposeWith(disposables);
 
         viewModel.Start.IsExecuting
@@ -76,7 +75,8 @@ public sealed class CommandsBehavior(
 
         Task StartAsync(CancellationToken ct)
         {
-            return ProcessResponsesAsync(viewModel, ct);
+            // Schedule on task pool
+            return Task.Run(() => ProcessResponsesAsync(viewModel, ct), ct);
         }
     }
 
@@ -110,47 +110,8 @@ public sealed class CommandsBehavior(
                     continue;
                 }
 
-                RxApp.MainThreadScheduler.Schedule(eventRecord, (_, record) => ProcessEventRecord(viewModel, record));
+                RxApp.MainThreadScheduler.Schedule(eventRecord, (_, record) => viewModel.ProcessEventRecord(record, TimeProvider));
             }
         }
-    }
-
-    private Task ProcessEventRecord(MainViewModel viewModel, RxEventRecord eventRecord)
-    {
-        // if source does not exist as node, create it
-        if (viewModel.Nodes.All(n => n.Id != eventRecord.Source))
-        {
-            viewModel.Nodes.Add(new(eventRecord.Source));
-        }
-
-        // if target does not exist as node, create it
-        if (viewModel.Nodes.All(n => n.Id != eventRecord.Target))
-        {
-            viewModel.Nodes.Add(new(eventRecord.Target));
-        }
-
-        // if edge does not exist, create it
-        var edge = viewModel.Edges.FirstOrOptional(IsMatch);
-
-        // if edge exists, update the LastTriggered property, otherwise create a new edge
-        if (!edge.HasValue)
-        {
-            var newEdge = new EdgeViewModel(eventRecord.Source, eventRecord.Target)
-            {
-                LastTriggered = TimeProvider.GetUtcNow()
-            };
-
-            viewModel.Edges.Add(newEdge);
-        }
-        else
-        {
-            edge.Value.LastTriggered = TimeProvider.GetUtcNow();
-        }
-
-        return Task.CompletedTask;
-
-        bool IsMatch(EdgeViewModel edgeViewModel)
-            => edgeViewModel.SourceId == eventRecord.Source
-            && edgeViewModel.TargetId == eventRecord.Target;
     }
 }

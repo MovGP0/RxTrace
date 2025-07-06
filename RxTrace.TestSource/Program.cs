@@ -35,14 +35,35 @@ var webTask = app.RunAsync();
 var tracer = app.Services.GetRequiredService<IRxEventTracer>();
 
 // Create a simple IObservable sequence (one event per second)
+var random = new Random();
+
+string[] sourceOptions = [
+    "AlphaFox",
+    "QuantumDuck",
+    "BinaryWombat",
+    "SpicyCabbage",
+    "Zebra42",
+    "NullYak",
+    "CosmicLlama",
+    "CrankyToaster",
+    "PixelBadger",
+    "FunkyMole"
+];
+
 var sourceStream = Observable
     .Interval(TimeSpan.FromSeconds(1))
-    .Select(i => new RxEventRecord(
-        Source: "TestSource",
-        Target: "TestTarget",
-        Payload: $"Message #{i}",
-        Timestamp: DateTime.UtcNow
-    ));
+    .Select(i =>
+    {
+        var source = sourceOptions[random.Next(sourceOptions.Length)];
+        var target = sourceOptions[random.Next(sourceOptions.Length)];
+
+        return new RxEventRecord(
+            Source: source,
+            Target: target,
+            Payload: $"Message #{i}",
+            Timestamp: DateTimeOffset.UtcNow
+        );
+    });
 
 // Subscribe the tracer to that sequence
 using (var _ = sourceStream.Subscribe(ev =>
