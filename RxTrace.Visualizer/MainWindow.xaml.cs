@@ -1,9 +1,9 @@
-﻿using System.Windows;
-using ReactiveUI;
+﻿using ReactiveUI;
+using SourceChord.FluentWPF;
 
 namespace RxTrace.Visualizer;
 
-public partial class MainWindow : Window, IViewFor<ViewModels.MainViewModel>
+public partial class MainWindow : AcrylicWindow, IViewFor<ViewModels.MainViewModel>
 {
     public MainWindow()
     {
