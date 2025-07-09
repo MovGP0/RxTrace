@@ -1,11 +1,13 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net9.0</TargetFramework>
+        <OutputType>Library</OutputType>
+        <TargetFrameworks>net8.0;net9.0;net472;net481</TargetFrameworks>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <LangVersion>12</LangVersion>
+        <AssemblyName>RxTrace</AssemblyName>
     </PropertyGroup>
-
     <ItemGroup>
       <PackageReference Include="MessagePipe" Version="1.8.1" />
       <PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.3.0" />
@@ -13,6 +15,8 @@
       <PackageReference Include="OneOf" Version="3.0.271" />
       <PackageReference Include="Splat" Version="15.3.1" />
       <PackageReference Include="System.Reactive" Version="6.0.1" />
+      <PackageReference Include="Microsoft.Bcl.TimeProvider" Version="9.0.5" />
+      <PackageReference Include="System.Text.Json" Version="9.0.5" />
     </ItemGroup>
 
 </Project>
