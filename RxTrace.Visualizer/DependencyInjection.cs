@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using ReactiveUI;
 using RxTrace.Visualizer.Behaviors;
+using RxTrace.Visualizer.Models;
 
 namespace RxTrace.Visualizer;
 
@@ -9,11 +10,15 @@ public static class DependencyInjection
     public static IServiceCollection AddVisualizer(this IServiceCollection services)
     {
         services.AddSingleton(TimeProvider.System);
-        services.AddSingleton<ViewModels.MainViewModel>();
-        services.AddSingleton<IViewFor<ViewModels.MainViewModel>, MainWindow>();
-        services.AddSingleton<IBehavior<ViewModels.MainViewModel>, GraphBehavior>();
-        services.AddSingleton<IBehavior<ViewModels.MainViewModel>, CommandsBehavior>();
+        services.AddTransient<ViewModels.MainViewModel>();
+        services.AddTransient<IViewFor<ViewModels.MainViewModel>, MainWindow>();
+        services.AddTransient<IBehavior<ViewModels.MainViewModel>, GraphBehavior>();
+        services.AddTransient<IBehavior<ViewModels.MainViewModel>, StartBehavior>();
+        services.AddTransient<IBehavior<ViewModels.MainViewModel>, StopBehavior>();
+        services.AddTransient<IBehavior<ViewModels.MainViewModel>, ClearBehavior>();
+        services.AddSingleton<CommandState>();
         services.AddMessagePipe();
+
         services
             .AddHttpClient(HttpClientNames.EventStream)
             .AddPolicyHandler(RetryPolicyFactory.CreateHttpRetryPolicy());
