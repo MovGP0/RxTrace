@@ -29,4 +29,9 @@
       <ProjectReference Include="..\RxTrace\RxTrace.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <None Remove="events_icon.ico" />
+      <Resource Include="events_icon.ico" />
+    </ItemGroup>
+
 </Project>
