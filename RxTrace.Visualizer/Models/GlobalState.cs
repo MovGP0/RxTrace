@@ -1,4 +1,5 @@
 ﻿using System.Reactive.Subjects;
+using System.Threading.Channels;
 using ReactiveUI;
 
 namespace RxTrace.Visualizer.Models;
@@ -6,13 +7,13 @@ namespace RxTrace.Visualizer.Models;
 /// <summary>
 /// Shared mutable state for the command‑related behaviors.
 /// </summary>
-public sealed class CommandState : IDisposable
+public sealed class GlobalState : IDisposable
 {
     private CancellationTokenSource _currentCts = new();
 
     /// <summary>
     /// Indicates whether we are currently processing the event‑stream.  Observed by the Stop‑command and
-    /// updated by the Start‑command via <see cref="ReactiveCommand.IsExecuting"/>.
+    /// updated by the Start‑command via <see cref="ReactiveCommand{TParam,TResult}.IsExecuting"/>.
     /// </summary>
     public BehaviorSubject<bool> IsProcessingResponses { get; } = new(false);
 
@@ -46,4 +47,14 @@ public sealed class CommandState : IDisposable
         _currentCts.Dispose();
         IsProcessingResponses.Dispose();
     }
+
+    /// <summary>
+    /// Buffers the event stream for emitting the events to the UI.
+    /// </summary>
+    public Channel<RxEventRecord> EventRecordChannel { get; }
+        = Channel.CreateUnbounded<RxEventRecord>(new()
+        {
+            SingleReader = true,
+            SingleWriter = false
+        });
 }

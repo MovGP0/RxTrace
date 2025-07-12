@@ -16,7 +16,8 @@ public static class DependencyInjection
         services.AddTransient<IBehavior<ViewModels.MainViewModel>, StartBehavior>();
         services.AddTransient<IBehavior<ViewModels.MainViewModel>, StopBehavior>();
         services.AddTransient<IBehavior<ViewModels.MainViewModel>, ClearBehavior>();
-        services.AddSingleton<CommandState>();
+        services.AddTransient<IBehavior<ViewModels.MainViewModel>, ProcessEventsBehavior>();
+        services.AddSingleton<GlobalState>();
         services.AddMessagePipe();
 
         services

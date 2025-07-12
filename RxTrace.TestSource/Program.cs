@@ -51,7 +51,7 @@ string[] sourceOptions = [
 ];
 
 var sourceStream = Observable
-    .Interval(TimeSpan.FromMilliseconds(100))
+    .Interval(TimeSpan.FromMilliseconds(10))
     .Select(i =>
     {
         var source = sourceOptions[random.Next(sourceOptions.Length)];

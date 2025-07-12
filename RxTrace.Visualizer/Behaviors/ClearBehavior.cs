@@ -1,5 +1,6 @@
 ﻿using System.Reactive.Disposables;
 using System.Reactive.Linq;
+using DynamicData;
 using ReactiveUI;
 using RxTrace.Visualizer.ViewModels;
 
@@ -17,8 +18,8 @@ public sealed class ClearBehavior : IBehavior<MainViewModel>
         vm.Clear = ReactiveCommand
             .Create(() =>
             {
-                vm.Edges.Clear();
-                vm.Nodes.Clear();
+                vm.EdgesCache.Clear();
+                vm.NodesCache.Clear();
             }, canClear, RxApp.MainThreadScheduler)
             .DisposeWith(d);
 

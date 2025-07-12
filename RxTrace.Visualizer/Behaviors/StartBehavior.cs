@@ -14,9 +14,8 @@ namespace RxTrace.Visualizer.Behaviors;
 /// Installs the *Start* command and orchestrates the HTTP event‑stream.
 /// </summary>
 public sealed class StartBehavior(
-    TimeProvider timeProvider,
     IHttpClientFactory httpClientFactory,
-    CommandState state) : IBehavior<MainViewModel>
+    GlobalState state) : IBehavior<MainViewModel>
 {
     public void Activate(MainViewModel viewModel, CompositeDisposable d)
     {
@@ -62,6 +61,7 @@ public sealed class StartBehavior(
         await using var stream = await resp.Content.ReadAsStreamAsync(ct);
         using var reader = new StreamReader(stream);
 
+        var writer = state.EventRecordChannel.Writer;
         while (!reader.EndOfStream && !ct.IsCancellationRequested)
         {
             var line = await reader.ReadLineAsync(ct);
@@ -69,9 +69,12 @@ public sealed class StartBehavior(
             {
                 var json = line["data:".Length..].Trim();
                 var record = JsonSerializer.Deserialize<RxEventRecord>(json);
-                if (record is null) continue;
+                if (record is null)
+                {
+                    continue;
+                }
 
-                RxApp.MainThreadScheduler.Schedule(record, (_, r) => viewModel.ProcessEventRecord(r, timeProvider));
+                await writer.WriteAsync(record, ct);
             }
         }
     }
